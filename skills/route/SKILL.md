@@ -141,16 +141,16 @@ Direct routes default to LOW or MEDIUM risk based on change content. Architectur
 ```text
 ROUTE_STATE: AWAITING_APPROVAL
 ROUTE_PLAN_ID: <short identifier>
-Reply "yes" to implement this plan.
 ```
 
-6. **HARD STOP.** Do not call `route-implementer`, edit files, or execute implementation before plain `yes` approval.
+6. Prompt user explicitly via `AskUserQuestion` tool to approve, request changes, or cancel implementation.
+7. **HARD STOP.** Do not call `route-implementer`, edit files, or execute implementation before explicit user approval.
 
 ---
 
 ## 6. Approval Resumption & Review Bounded Loop
 
-A plain affirmative (`yes`) resumes only the latest unresolved `ROUTE_STATE: AWAITING_APPROVAL` plan in the current conversation. Context loss, `/clear`, or a new session does not preserve pending in-memory state; present the stored progress plan and require fresh approval. Without an active unresolved marker, treat `yes` as ordinary conversation.
+Approval via `AskUserQuestion` (or explicit confirmation) resumes only the latest unresolved `ROUTE_STATE: AWAITING_APPROVAL` plan in the current conversation. Context loss, `/clear`, or a new session does not preserve pending in-memory state; present the stored progress plan and require fresh approval. Without an active unresolved marker, treat responses as ordinary conversation.
 
 Destructive or outward-facing actions (deletion, deployment, publication) require separate immediate confirmation immediately before execution even after plan approval.
 

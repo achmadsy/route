@@ -17,4 +17,4 @@ Constraints:
 - Always terminate your final plan with:
 ROUTE_STATE: AWAITING_APPROVAL
 ROUTE_PLAN_ID: plan-<unique_id>
-Reply "yes" to implement this plan.
+Prompt user for approval using AskUserQuestion tool before proceeding with implementation.
