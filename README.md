@@ -21,13 +21,16 @@ Intelligent task routing, architecture planning, and stage-specific subagent exe
 ## Routing Lanes
 
 1. **PROBE**: Read-only investigation, questions, log inspection, code search. No edits or commits.
-2. **DIRECT**: Focused, reversible changes (1-2 files). Direct implementation + strong review + focused Git commit.
-3. **ARCHITECTURAL**: Complex changes, migrations, auth/security, public APIs, multi-file refactoring (3+ files). Produces comprehensive plan and requires explicit plain `yes` approval before implementation.
+2. **DIRECT**: Focused, reversible non-bug additions/tweaks (1-2 files). Direct implementation + strong review + focused Git commit.
+3. **DEBUG**: Bugs, test failures, crashes, regressions, broken flows. Enforces the Iron Law of Debugging (investigate root cause first, no symptom patching, 3-fix circuit breaker).
+4. **ARCHITECTURAL**: Complex changes, migrations, auth/security, public APIs, multi-file refactoring (3+ files). Evaluates 2-3 brainstormed approaches, produces comprehensive plan, and requires approval before implementation.
 
 ## Features
 
-- **Conservative classification**: Low confidence or security/migration/API triggers force `ARCHITECTURAL`.
-- **Persistent progress tracking**: `.claude/routes/<route-id>/progress.md` tracks state for Direct and Architectural routes; deleted before commit on success; preserved on failure for recovery.
+- **Conservative classification**: Low confidence or security/migration/API triggers force `ARCHITECTURAL`. All bug fixes force `DEBUG`.
+- **The Iron Law of Debugging**: Mandatory 4-phase debugging (root cause investigation, pattern analysis, hypothesis testing, targeted fix & verify) with 3-fix circuit breaker.
+- **Mandatory brainstorming gate**: Architectural plans evaluate 2-3 distinct approaches with explicit trade-offs.
+- **Persistent progress tracking**: `.claude/routes/<route-id>/progress.md` tracks state for Direct, Debug, and Architectural routes; deleted before commit on success; preserved on failure for recovery.
 - **Risk-based TDD verification**:
   - `HIGH`: Strict TDD (failing test first, make pass, red/green evidence required).
   - `MEDIUM`: Automated tests required.
