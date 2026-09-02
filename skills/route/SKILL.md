@@ -180,19 +180,24 @@ Destructive or outward-facing actions (deletion, deployment, publication) requir
 
 ---
 
-## 7. Git Completion Policy & Push Confirmation Gate
+## 7. Git Completion Policy, Commit Gate & Push Gate
 
-Direct, Debug, and Architectural routes automatically create a focused Git commit only after tests and final review succeed:
+Direct, Debug, and Architectural routes prompt user for confirmation before commit after tests and final review succeed:
 
-1. **Update State:** Set progress state to `COMMITTING`.
-2. **Delete Progress File:** Delete `.claude/routes/<route-id>/progress.md` before commit.
-3. **Verify State Cleanup:** Confirm deletion leaves no route-state artifact staged or untracked.
-4. **Focused Stage:** Stage ONLY route-owned implementation files, test files, documentation, and eligible project-root `CLAUDE.md` changes. Never stage unrelated baseline changes.
-5. **Commit:** Create one focused Git commit describing the accomplishment.
-6. **Report Commit:** Present the commit hash and summary to the user.
-7. **Push Confirmation Gate:**
+1. **Delete Progress File:** Delete `.claude/routes/<route-id>/progress.md` before commit.
+2. **Verify State Cleanup:** Confirm deletion leaves no route-state artifact staged or untracked.
+3. **Commit Confirmation Gate:**
+   - Present summary of changes (modified/created files, test results).
+   - Ask for explicit user confirmation before committing changes (`git commit`).
+   - If user declines commit, leave working tree clean with changes unstaged/staged as appropriate, report status, and mark route as `COMPLETED`.
+4. **Focused Stage & Commit:**
+   - On confirmation, set progress state to `COMMITTING`.
+   - Stage ONLY route-owned implementation files, test files, documentation, and eligible project-root `CLAUDE.md` changes. Never stage unrelated baseline changes.
+   - Create one focused Git commit describing the accomplishment.
+   - Report the commit hash and summary to the user.
+5. **Push Confirmation Gate:**
    - Ask for explicit user confirmation before running `git push`.
    - Push is an outward-facing action; never push automatically without explicit confirmation.
    - Never force-push: `git push --force` and force-with-lease are strictly prohibited.
    - If no upstream/remote exists or user declines push, report local commit and exit cleanly.
-8. **Completion:** Mark route as `COMPLETED`.
+6. **Completion:** Mark route as `COMPLETED`.

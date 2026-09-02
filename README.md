@@ -21,7 +21,7 @@ Intelligent task routing, architecture planning, and stage-specific subagent exe
 ## Routing Lanes
 
 1. **PROBE**: Read-only investigation, questions, log inspection, code search. No edits or commits.
-2. **DIRECT**: Focused, reversible non-bug additions/tweaks (1-2 files). Direct implementation + strong review + focused Git commit.
+2. **DIRECT**: Focused, reversible non-bug additions/tweaks (1-2 files). Direct implementation + strong review + commit gate + push gate.
 3. **DEBUG**: Bugs, test failures, crashes, regressions, broken flows. Enforces the Iron Law of Debugging (investigate root cause first, no symptom patching, 3-fix circuit breaker).
 4. **ARCHITECTURAL**: Complex changes, migrations, auth/security, public APIs, multi-file refactoring (3+ files). Evaluates 2-3 brainstormed approaches, produces comprehensive plan, and requires approval before implementation.
 
@@ -36,7 +36,7 @@ Intelligent task routing, architecture planning, and stage-specific subagent exe
   - `MEDIUM`: Automated tests required.
   - `LOW`: Build, lint, or typecheck verification.
 - **Durable project `CLAUDE.md` updates**: Reusable lessons drafted and reviewed together before final review.
-- **Git workflow**: Clean baseline check, automatic focused commit on success, explicit confirmation gate before `git push`, force-push prohibited.
+- **Git workflow**: Clean baseline check, explicit confirmation gate before `git commit`, explicit confirmation gate before `git push`, force-push prohibited.
 - **Bounded review loop**: Capped at `Review 1 -> Fix pass 1 -> Review 2 -> Stop`.
 
 ## Installation on a New Machine
