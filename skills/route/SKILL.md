@@ -11,6 +11,18 @@ Project instructions and stricter safety rules override this workflow. Never sub
 
 Read-only boundaries are strictly enforced: classifier, probe, planner, and reviewer forbid all filesystem or system mutation. Only implementer makes edits and runs verification.
 
+### ABSOLUTE EXECUTION CONSTRAINTS:
+1. **NO BACKGROUND OR PARALLEL EXECUTION EVER:**
+   - NEVER build, test, compile, or execute commands in parallel or in the background.
+   - NEVER dispatch agents in parallel or background. All subagent calls and tool calls MUST be strictly sequential, synchronous, and foreground.
+   - NEVER use `run_in_background: true` on Bash or any other tool.
+   - NEVER use Workflow or multi-agent orchestration to fan out concurrent jobs.
+2. **NO AUTO-CONTINUE & STRICT STOP ON DEMAND:**
+   - NEVER auto-continue plans or executions when there is no explicit user input or after user delivers a new/different command.
+   - If the user provides a new instruction, question, or command, IMMEDIATELY ABORT any pending route plan. Do NOT continue prior plan.
+   - When asked to stop (e.g., "stop", "halt", "cancel", "pause", "wait"), STOP IMMEDIATELY. Cease all actions, cancel pending steps, and do not execute further agents or commands.
+   - Require explicit affirmative user confirmation before continuing any execution phase. Never assume approval.
+
 ---
 
 ## 1. Classification & Escalation
