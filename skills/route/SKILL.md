@@ -22,6 +22,11 @@ Read-only boundaries are strictly enforced: classifier, probe, planner, and revi
    - If the user provides a new instruction, question, or command, IMMEDIATELY ABORT any pending route plan. Do NOT continue prior plan.
    - When asked to stop (e.g., "stop", "halt", "cancel", "pause", "wait"), STOP IMMEDIATELY. Cease all actions, cancel pending steps, and do not execute further agents or commands.
    - Require explicit affirmative user confirmation before continuing any execution phase. Never assume approval.
+3. **MCP TOOL INTEGRATION:**
+   - Subagents have access to all configured MCP servers (`mcp__*`).
+   - When investigating or navigating code, leverage `codebase-memory-mcp` tools (`search_graph`, `trace_path`, `get_code_snippet`, `get_architecture`, `detect_changes`) before falling back to raw grep.
+   - When testing web interfaces or checking UI flows, leverage `playwright` tools (`browser_navigate`, `browser_snapshot`, `browser_click`).
+   - When working with SQLite databases, leverage sqlite MCP tools for schema inspection and queries.
 
 ---
 
@@ -182,7 +187,7 @@ Approval via `AskUserQuestion` (or explicit confirmation) resumes only the lates
 Destructive or outward-facing actions (deletion, deployment, publication) require separate immediate confirmation immediately before execution even after plan approval.
 
 ### Execution Sequence
-1. **Implementation Pass:** Dispatch `route-implementer` with exact approved plan (no scope creep) and risk-based verification.
+1. **Implementation Pass:** Dispatch `route-implementer` with exact approved plan (no scope creep) and risk-based verification. Instruct implementer to prioritize immediate file modifications and verification over extended history/upstream searches.
 2. **Durable Project `CLAUDE.md` Update:** Draft/apply verified reusable guidance to project `CLAUDE.md` before final review.
 3. **Review 1:** Dispatch `route-reviewer` with approved plan, diff, and test evidence (`VERDICT: PASS | FINDINGS`).
 4. **Review 1 Pass:** If `PASS`, proceed to Git Completion.

@@ -2,7 +2,7 @@
 name: route-classifier
 description: Classify incoming task into PROBE, DIRECT, DEBUG, or ARCHITECTURAL lane. Fast and conservative.
 tools: Read, Grep, Glob
-model: current-quota
+model: classifier-agent
 maxTurns: 4
 ---
 
