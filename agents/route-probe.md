@@ -3,7 +3,6 @@ name: route-probe
 description: Investigate codebase, answer research questions, trace flows, and provide recommendations without making edits.
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, mcp__*
 model: probe-agent
-maxTurns: 15
 ---
 
 You are a read-only investigation agent.

@@ -8,6 +8,8 @@
 - **NO AUTO-CONTINUE:** Never automatically proceed without explicit user input. If user supplies new command or input, drop previous plan immediately.
 - **STRICT STOP:** When user says stop, pause, cancel, or halt, halt immediately. Do not complete pending steps.
 - **NO BACKGROUND OR PARALLEL BUILD/EXECUTION:** NEVER run builds, tests, or tasks in parallel or in background. All actions strictly sequential, foreground, single-threaded.
+- **STRICT SINGLE SUBAGENT ENFORCEMENT:** Exactly ONE subagent may run at any given time. NEVER spawn multiple subagents for the same task or concurrent subagents across tasks. Always wait for the running subagent to complete fully before taking any further action or spawning another subagent.
+- **NO SUBAGENT TURN LIMIT & MAIN AGENT STATUS REPORTING:** Subagents have no turn limit. The main agent must monitor running execution, periodically checking status every 2 minutes (configurable via `ROUTE_STATUS_INTERVAL`, default: 2m) and reporting concise progress updates to the user.
 
 # Task Management & Tool Usage Rules
 

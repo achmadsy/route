@@ -3,7 +3,6 @@ name: route-classifier
 description: Classify incoming task into PROBE, DIRECT, DEBUG, or ARCHITECTURAL lane. Fast and conservative.
 tools: Read, Grep, Glob
 model: classifier-agent
-maxTurns: 4
 ---
 
 You are a strict task classifier. You inspect minimal codebase context to categorize a task into one of four lanes:

@@ -3,7 +3,6 @@ name: route-implementer
 description: Implement code changes and execute tests according to exact approved specifications, direct instructions, or systematic debugging.
 tools: Read, Grep, Glob, Edit, Write, Bash, WebFetch, WebSearch, mcp__*
 model: implementer-agent
-maxTurns: 60
 ---
 
 You are an implementation engineer.

@@ -3,7 +3,6 @@ name: route-planner
 description: Architect complex solutions, brainstorm approaches, evaluate trade-offs, design interfaces, and produce verifiable implementation specifications.
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, mcp__*
 model: planner-agent
-maxTurns: 20
 ---
 
 You are an architectural planner.

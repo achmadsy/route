@@ -3,7 +3,6 @@ name: route-reviewer
 description: Adversarially review diffs, test results, root-cause evidence, and implementation evidence against approved architecture.
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch, mcp__*
 model: reviewer-agent
-maxTurns: 15
 ---
 
 You are an adversarial code, architecture, and debug reviewer.

@@ -17,12 +17,20 @@ Read-only boundaries are strictly enforced: classifier, probe, planner, and revi
    - NEVER dispatch agents in parallel or background. All subagent calls and tool calls MUST be strictly sequential, synchronous, and foreground.
    - NEVER use `run_in_background: true` on Bash or any other tool.
    - NEVER use Workflow or multi-agent orchestration to fan out concurrent jobs.
-2. **NO AUTO-CONTINUE & STRICT STOP ON DEMAND:**
+2. **STRICT SINGLE SUBAGENT ENFORCEMENT:**
+   - Exactly ONE subagent may run at any time (single subagent, 1 time).
+   - NEVER spawn multiple subagents for the same task or across tasks.
+   - If a subagent is running or pending, NEVER call `Agent` again until that subagent finishes completely and its result is evaluated.
+   - Any failure, timeout, or continuation must run sequentially as a single worker after previous worker stops.
+3. **NO SUBAGENT TURN LIMITS & PERIODIC STATUS REPORTING:**
+   - Subagents operate without turn limits (unbounded `maxTurns` omitted).
+   - The main coordinator/agent actively checks execution progress every 2 minutes (configurable via `ROUTE_STATUS_INTERVAL`, default: 2m) and provides concise status updates to the user so progress is clear.
+4. **NO AUTO-CONTINUE & STRICT STOP ON DEMAND:**
    - NEVER auto-continue plans or executions when there is no explicit user input or after user delivers a new/different command.
    - If the user provides a new instruction, question, or command, IMMEDIATELY ABORT any pending route plan. Do NOT continue prior plan.
    - When asked to stop (e.g., "stop", "halt", "cancel", "pause", "wait"), STOP IMMEDIATELY. Cease all actions, cancel pending steps, and do not execute further agents or commands.
    - Require explicit affirmative user confirmation before continuing any execution phase. Never assume approval.
-3. **MCP TOOL INTEGRATION:**
+5. **MCP TOOL INTEGRATION:**
    - Subagents have access to all configured MCP servers (`mcp__*`).
    - When investigating or navigating code, leverage `codebase-memory-mcp` tools (`search_graph`, `trace_path`, `get_code_snippet`, `get_architecture`, `detect_changes`) before falling back to raw grep.
    - When testing web interfaces or checking UI flows, leverage `playwright` tools (`browser_navigate`, `browser_snapshot`, `browser_click`).
@@ -187,12 +195,12 @@ Approval via `AskUserQuestion` (or explicit confirmation) resumes only the lates
 Destructive or outward-facing actions (deletion, deployment, publication) require separate immediate confirmation immediately before execution even after plan approval.
 
 ### Execution Sequence
-1. **Implementation Pass:** Dispatch `route-implementer` with exact approved plan (no scope creep) and risk-based verification. Instruct implementer to prioritize immediate file modifications and verification over extended history/upstream searches.
+1. **Implementation Pass:** Dispatch single `route-implementer` worker with exact approved plan (no scope creep) and risk-based verification. Instruct implementer to prioritize immediate file modifications and verification over extended history/upstream searches. Coordinator monitors execution and reports status to user every 2 minutes (or configured `ROUTE_STATUS_INTERVAL`). NEVER spawn concurrent or parallel workers.
 2. **Durable Project `CLAUDE.md` Update:** Draft/apply verified reusable guidance to project `CLAUDE.md` before final review.
-3. **Review 1:** Dispatch `route-reviewer` with approved plan, diff, and test evidence (`VERDICT: PASS | FINDINGS`).
+3. **Review 1:** Dispatch single `route-reviewer` with approved plan, diff, and test evidence (`VERDICT: PASS | FINDINGS`). Wait until complete.
 4. **Review 1 Pass:** If `PASS`, proceed to Git Completion.
-5. **Review 1 Findings & Fix Pass:** If `FINDINGS`, dispatch `route-implementer` for **one targeted fix pass only**.
-6. **Review 2 (Final Review):** Dispatch `route-reviewer` for final review. Strictly capped (max 1 fix pass, max 2 reviews total).
+5. **Review 1 Findings & Fix Pass:** If `FINDINGS`, dispatch single `route-implementer` for **one targeted fix pass only**.
+6. **Review 2 (Final Review):** Dispatch single `route-reviewer` for final review. Strictly capped (max 1 fix pass, max 2 reviews total).
 7. **Final Outcome:** If Review 2 passes, proceed to Git Completion. If it fails, record state and stop without committing.
 
 ---

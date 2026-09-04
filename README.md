@@ -35,6 +35,8 @@ Intelligent task routing, architecture planning, and stage-specific subagent exe
   - `HIGH`: Strict TDD (failing test first, make pass, red/green evidence required).
   - `MEDIUM`: Automated tests required.
   - `LOW`: Build, lint, or typecheck verification.
+- **Strict single subagent enforcement**: Never dispatch parallel subagents for the same task. Exactly 1 subagent at a time, strictly sequential and foreground.
+- **Unbounded subagent turns & status loop**: Subagents operate without turn limits. Coordinator monitors execution and reports progress every 2 minutes (configurable via `ROUTE_STATUS_INTERVAL`).
 - **Durable project `CLAUDE.md` updates**: Reusable lessons drafted and reviewed together before final review.
 - **Git workflow**: Clean baseline check, explicit confirmation gate before `git commit`, explicit confirmation gate before `git push`, force-push prohibited.
 - **Bounded review loop**: Capped at `Review 1 -> Fix pass 1 -> Review 2 -> Stop`.
