@@ -8,8 +8,10 @@
 - **NO AUTO-CONTINUE:** Never automatically proceed without explicit user input. If user supplies new command or input, drop previous plan immediately.
 - **STRICT STOP:** When user says stop, pause, cancel, or halt, halt immediately. Do not complete pending steps.
 - **NO BACKGROUND OR PARALLEL BUILD/EXECUTION:** NEVER run builds, tests, or tasks in parallel or in background. All actions strictly sequential, foreground, single-threaded.
-- **STRICT SINGLE SUBAGENT ENFORCEMENT:** Exactly ONE subagent may run at any given time. NEVER spawn multiple subagents for the same task or concurrent subagents across tasks. Always wait for the running subagent to complete fully before taking any further action or spawning another subagent.
+- **BASH TOOL TIMEOUT AVOIDANCE:** Never allow long operations (e.g. `docker build`, test suites) to hit default 120s timeout and get auto-backgrounded by Claude CLI. Explicitly set `timeout: 600000` (10 minutes) on Bash calls for builds/tests. If command hits timeout or enters background, NEVER run duplicate command concurrently; inspect or wait for background task to terminate before proceeding.
+- **STRICT SINGLE SUBAGENT ENFORCEMENT & SEQUENCING:** Exactly ONE subagent may run at any given time. NEVER spawn multiple subagents for the same task or concurrent subagents across tasks. The initial return of the `Agent` tool is asynchronous (returns background task id); the subagent is STILL RUNNING until `<task-notification>` arrives with `<status>completed</status>`. Never launch a subsequent subagent (e.g., `route-implementer` after `route-planner`) until the preceding subagent has delivered its final `<task-notification>`.
 - **NO SUBAGENT TURN LIMIT & MAIN AGENT STATUS REPORTING:** Subagents have no turn limit. The main agent must monitor running execution, periodically checking status every 2 minutes (configurable via `ROUTE_STATUS_INTERVAL`, default: 2m) and reporting concise progress updates to the user.
+- **ALWAYS VISIBLE OUTPUT:** Every model response turn MUST contain visible text content to the user. Never end turn with only thinking blocks or silent empty content that triggers CLI empty response recovery (`[Your previous response had no visible output...]`).
 
 # Task Management & Tool Usage Rules
 

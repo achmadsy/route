@@ -17,20 +17,24 @@ Read-only boundaries are strictly enforced: classifier, probe, planner, and revi
    - NEVER dispatch agents in parallel or background. All subagent calls and tool calls MUST be strictly sequential, synchronous, and foreground.
    - NEVER use `run_in_background: true` on Bash or any other tool.
    - NEVER use Workflow or multi-agent orchestration to fan out concurrent jobs.
-2. **STRICT SINGLE SUBAGENT ENFORCEMENT:**
+   - **BASH TIMEOUT AVOIDANCE:** For long-running operations like `docker build` or extensive test suites, explicitly specify `timeout: 600000` (10 minutes) on `Bash` tool calls to prevent Claude CLI from timing out at 120s and automatically backgrounding the process. If a command ever times out and moves to background, DO NOT start a duplicate command concurrently. Wait for or kill the background job first.
+2. **STRICT SINGLE SUBAGENT ENFORCEMENT & SEQUENCING:**
    - Exactly ONE subagent may run at any time (single subagent, 1 time).
    - NEVER spawn multiple subagents for the same task or across tasks.
-   - If a subagent is running or pending, NEVER call `Agent` again until that subagent finishes completely and its result is evaluated.
+   - **Subagent completion requirement:** Calling `Agent` tool returns an asynchronous invocation receipt immediately. The subagent is STILL ACTIVELY RUNNING until the coordinator receives the `<task-notification>` with `<status>completed</status>`.
+   - NEVER call `Agent` again (e.g., launching `route-implementer` right after `route-planner`) until the preceding subagent has delivered its final `<task-notification>`.
    - Any failure, timeout, or continuation must run sequentially as a single worker after previous worker stops.
 3. **NO SUBAGENT TURN LIMITS & PERIODIC STATUS REPORTING:**
    - Subagents operate without turn limits (unbounded `maxTurns` omitted).
    - The main coordinator/agent actively checks execution progress every 2 minutes (configurable via `ROUTE_STATUS_INTERVAL`, default: 2m) and provides concise status updates to the user so progress is clear.
-4. **NO AUTO-CONTINUE & STRICT STOP ON DEMAND:**
+4. **ALWAYS VISIBLE OUTPUT:**
+   - Every model turn MUST emit visible message text to the user. Never end a turn with empty content or thinking blocks only, which causes CLI recovery messages (`[Your previous response had no visible output...]`).
+5. **NO AUTO-CONTINUE & STRICT STOP ON DEMAND:**
    - NEVER auto-continue plans or executions when there is no explicit user input or after user delivers a new/different command.
    - If the user provides a new instruction, question, or command, IMMEDIATELY ABORT any pending route plan. Do NOT continue prior plan.
    - When asked to stop (e.g., "stop", "halt", "cancel", "pause", "wait"), STOP IMMEDIATELY. Cease all actions, cancel pending steps, and do not execute further agents or commands.
    - Require explicit affirmative user confirmation before continuing any execution phase. Never assume approval.
-5. **MCP TOOL INTEGRATION:**
+6. **MCP TOOL INTEGRATION:**
    - Subagents have access to all configured MCP servers (`mcp__*`).
    - When investigating or navigating code, leverage `codebase-memory-mcp` tools (`search_graph`, `trace_path`, `get_code_snippet`, `get_architecture`, `detect_changes`) before falling back to raw grep.
    - When testing web interfaces or checking UI flows, leverage `playwright` tools (`browser_navigate`, `browser_snapshot`, `browser_click`).
