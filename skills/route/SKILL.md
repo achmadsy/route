@@ -26,7 +26,15 @@ Read-only boundaries are strictly enforced: classifier, probe, planner, and revi
    - Any failure, timeout, or continuation must run sequentially as a single worker after previous worker stops.
 3. **NO SUBAGENT TURN LIMITS & PERIODIC STATUS REPORTING:**
    - Subagents operate without turn limits (unbounded `maxTurns` omitted).
-   - The main coordinator/agent actively checks execution progress every 2 minutes (configurable via `ROUTE_STATUS_INTERVAL`, default: 2m) and provides concise status updates to the user so progress is clear.
+   - **Mandatory monitor loop (while ANY subagent runs):** After dispatching the single subagent and receiving its task id, the coordinator MUST poll it in a blocking, sequential loop — no other work between polls:
+     1. Call `TaskOutput(task_id, block: true, timeout: 120000)` (2 minutes; use the `ROUTE_STATUS_INTERVAL` value in ms if set, default 120000).
+     2. If the poll times out without `<status>completed</status>` (subagent still running): report one concise status line to the user (subagent alive, still running — do not fabricate what file it is on; if available, name last observed tool target) and loop back to poll again.
+     3. If the poll returns completion: read the result and exit the loop. Only then may the coordinator proceed to the next step (review, fix pass, etc.).
+   - Never call `Agent` again, never start other work, and never end the turn while inside this loop. The loop replaces guesswork: subagent activity is confirmed by each poll, not assumed.
+   - **User input during the loop:**
+     - Question or comment the coordinator can answer directly (e.g. "is subagent still working?", "what's it doing?"): answer it, then resume the same poll loop — subagent keep running, poll cadence unchanged.
+     - New task/command input: obey NO AUTO-CONTINUE — drop previous plan, stop polling, address the new input. Whether running subagent is stopped via `TaskStop` or left running is the user's call; ask if unclear.
+     - Stop/pause/cancel/halt: STRICT STOP — call `TaskStop` on the running subagent, exit loop, full stop of plan, await user instruction.
 4. **ALWAYS VISIBLE OUTPUT:**
    - Every model turn MUST emit visible message text to the user. Never end a turn with empty content or thinking blocks only, which causes CLI recovery messages (`[Your previous response had no visible output...]`).
 5. **NO AUTO-CONTINUE & STRICT STOP ON DEMAND:**
@@ -199,7 +207,7 @@ Approval via `AskUserQuestion` (or explicit confirmation) resumes only the lates
 Destructive or outward-facing actions (deletion, deployment, publication) require separate immediate confirmation immediately before execution even after plan approval.
 
 ### Execution Sequence
-1. **Implementation Pass:** Dispatch single `route-implementer` worker with exact approved plan (no scope creep) and risk-based verification. Instruct implementer to prioritize immediate file modifications and verification over extended history/upstream searches. Coordinator monitors execution and reports status to user every 2 minutes (or configured `ROUTE_STATUS_INTERVAL`). NEVER spawn concurrent or parallel workers.
+1. **Implementation Pass:** Dispatch single `route-implementer` worker with exact approved plan (no scope creep) and risk-based verification. Instruct implementer to prioritize immediate file modifications and verification over extended history/upstream searches. Coordinator then enters mandatory monitor loop (Section 2 constraint 3): blocking `TaskOutput` poll every 2 minutes (or configured `ROUTE_STATUS_INTERVAL`), concise status line to user on each poll timeout, exit loop only on completion. NEVER spawn concurrent or parallel workers.
 2. **Durable Project `CLAUDE.md` Update:** Draft/apply verified reusable guidance to project `CLAUDE.md` before final review.
 3. **Review 1:** Dispatch single `route-reviewer` with approved plan, diff, and test evidence (`VERDICT: PASS | FINDINGS`). Wait until complete.
 4. **Review 1 Pass:** If `PASS`, proceed to Git Completion.
