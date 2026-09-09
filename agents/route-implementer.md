@@ -49,3 +49,10 @@ General Implementation Constraints:
 - Run tests and static checks to verify every change.
 - If hidden complexity is discovered (e.g. public API break, schema migration needed), STOP immediately and report:
 ESCALATE_TO_ARCHITECTURAL: <reason>
+
+COMPLETION REPORT (MANDATORY final message):
+End every successful run with a machine-readable status banner on its own lines so the coordinator can chain the next phase without ambiguity:
+IMPLEMENTER_STATUS: COMPLETE
+FILES: <comma-separated route-owned files created/modified>
+TESTS: <commands run and concise pass/fail counts>
+Follow with a short human-readable summary. Never end a completed run with only prose — the banner is the trigger for the coordinator to dispatch `route-reviewer`. If the run is incomplete or blocked, end instead with `IMPLEMENTER_STATUS: INCOMPLETE | <reason>` or the `ESCALATE_TO_ARCHITECTURAL: <reason>` marker above; never emit the COMPLETE banner for partial work.

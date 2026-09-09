@@ -21,16 +21,26 @@ Read-only boundaries are strictly enforced: classifier, probe, planner, and revi
 2. **STRICT SINGLE SUBAGENT ENFORCEMENT & SEQUENCING:**
    - Exactly ONE subagent may run at any time (single subagent, 1 time).
    - NEVER spawn multiple subagents for the same task or across tasks.
-   - **Subagent completion requirement:** Calling `Agent` tool returns an asynchronous invocation receipt immediately. The subagent is STILL ACTIVELY RUNNING until the coordinator receives the `<task-notification>` with `<status>completed</status>`.
-   - NEVER call `Agent` again (e.g., launching `route-implementer` right after `route-planner`) until the preceding subagent has delivered its final `<task-notification>`.
+   - **Subagent completion requirement:** Calling `Agent` tool returns an asynchronous invocation receipt immediately. The subagent is STILL ACTIVELY RUNNING until a blocking `TaskOutput` poll returns `<status>completed</status>` (a `<task-notification>` may also arrive; it is not a substitute for the poll loop).
+   - NEVER call `Agent` again (e.g., launching `route-implementer` right after `route-planner`) until the preceding subagent has delivered its final completed status.
    - Any failure, timeout, or continuation must run sequentially as a single worker after previous worker stops.
+   - **Same-turn phase chaining (no announce-then-idle):** When the current subagent is completed, the coordinator MUST dispatch the next required subagent in the SAME turn — Agent call in that turn, before `end_turn`. Forbidden: visible text such as "Dispatching reviewer" / "Reviewer next" / "Implementer done, sending to review" and then ending the turn with no `Agent` call. A completed subagent produces no further wakeups; an idle REPL hangs until the user speaks.
+   - These payloads are sufficient reason to start the next phase (no extra user input except `AWAITING_APPROVAL` / commit / push gates):
+     - Classifier `LANE:` → start that lane
+     - User-approved plan → `route-implementer`
+     - `IMPLEMENTER_STATUS: COMPLETE` **or** implementer `TaskOutput` `<status>completed</status>` without `ESCALATE_TO_ARCHITECTURAL` → `route-reviewer`
+     - `VERDICT: FINDINGS` → one implementer fix pass
+     - `VERDICT: PASS` → git completion gate
+     - Missing implementer banner: still chain to reviewer if TaskOutput completed and the result has no escalate/fail marker. Do not idle to "wait for a better signal".
 3. **NO SUBAGENT TURN LIMITS & PERIODIC STATUS REPORTING:**
    - Subagents operate without turn limits (unbounded `maxTurns` omitted).
    - **Mandatory monitor loop (while ANY subagent runs):** After dispatching the single subagent and receiving its task id, the coordinator MUST poll it in a blocking, sequential loop — no other work between polls:
      1. Call `TaskOutput(task_id, block: true, timeout: 120000)` (2 minutes; use the `ROUTE_STATUS_INTERVAL` value in ms if set, default 120000).
      2. If the poll times out without `<status>completed</status>` (subagent still running): report one concise status line to the user (subagent alive, still running — do not fabricate what file it is on; if available, name last observed tool target) and loop back to poll again.
-     3. If the poll returns completion: read the result and exit the loop. Only then may the coordinator proceed to the next step (review, fix pass, etc.).
+     3. If the poll returns completion: read the result and exit the loop. Only then may the coordinator proceed to the next step (review, fix pass, etc.) — and that next `Agent` call MUST happen in the same turn (constraint 2 same-turn chaining).
+   - **Same-turn poll after dispatch (no wait-text `end_turn`):** The turn that receives the Agent launch receipt MUST call `TaskOutput(task_id, block: true, timeout: 120000)` before that turn ends. Forbidden: ending the turn with only text such as "Waiting for `<task-notification>`" / "Agent dispatched" / "Polling" and no `TaskOutput` call. `<task-notification>` does not resume an idle coordinator by itself.
    - Never call `Agent` again, never start other work, and never end the turn while inside this loop. The loop replaces guesswork: subagent activity is confirmed by each poll, not assumed.
+   - **Cron heartbeat safety net:** Immediately after the first subagent dispatch of an active route, the coordinator MUST create one recurring cron keep-alive: `CronCreate` with `cron: "*/2 * * * *"`, `recurring: true`, prompt instructing: "Route heartbeat: check whether the active route phase is stalled. If a subagent task id exists but no poll loop is running, resume the blocking `TaskOutput` monitor loop for that task. If no route is active, do nothing." The heartbeat NEVER dispatches a new `Agent` while any subagent is running or before the previous subagent's completed status is confirmed; it only resumes polling or advances to the next phase per the chaining rules above. Call `CronDelete` on this job when the route reaches `COMPLETED`, is cancelled, or is abandoned (failure, user stop, escalation dead-end). A heartbeat firing with no active route MUST do nothing and must not restart finished work.
    - **User input during the loop:**
      - Question or comment the coordinator can answer directly (e.g. "is subagent still working?", "what's it doing?"): answer it, then resume the same poll loop — subagent keep running, poll cadence unchanged.
      - New task/command input: obey NO AUTO-CONTINUE — drop previous plan, stop polling, address the new input. Whether running subagent is stopped via `TaskStop` or left running is the user's call; ask if unclear.
