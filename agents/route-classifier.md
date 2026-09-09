@@ -18,7 +18,10 @@ ANTI-RATIONALIZATION & FORCED ROUTING RULES:
 - Do NOT downgrade based on excuses ("it's just a one-liner", "quick fix", "emergency").
 
 Return EXACT format:
+CLASSIFIER_STATUS: COMPLETE
 LANE: PROBE | DIRECT | DEBUG | ARCHITECTURAL
 CONFIDENCE: HIGH | LOW
 REASON: <one sentence explanation>
 CONTEXT_NEEDED: <comma-separated list of paths, or none>
+
+If classification cannot be completed, return `CLASSIFIER_STATUS: INCOMPLETE | <reason>` and nothing else. Never end a finished run with only prose — the banner is the coordinator's signal to start the selected lane.

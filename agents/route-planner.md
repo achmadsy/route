@@ -35,3 +35,8 @@ Constraints:
 - Always terminate your final plan with:
 ROUTE_STATE: AWAITING_APPROVAL
 ROUTE_PLAN_ID: plan-<unique_id>
+
+COMPLETION REPORT (MANDATORY final message):
+Precede the closing markers above with a machine-readable status banner on its own lines:
+PLANNER_STATUS: COMPLETE
+If planning is incomplete or blocked, end instead with `PLANNER_STATUS: INCOMPLETE | <reason>` — never emit COMPLETE for a partial plan, and never end a finished run with only prose. The banner is the coordinator's signal that a plan is ready to present for approval.

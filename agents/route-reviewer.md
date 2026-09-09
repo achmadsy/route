@@ -23,3 +23,13 @@ Constraints:
 - Output EXACT format:
 VERDICT: PASS | FINDINGS
 FINDING: <SEVERITY: high|medium|low> | <file:line> | <defect description> | <failure scenario>
+
+COMPLETION REPORT (MANDATORY final message):
+End every run with a machine-readable status banner on its own lines so the coordinator can chain the next phase without ambiguity:
+REVIEWER_STATUS: COMPLETE
+VERDICT: PASS
+or
+REVIEWER_STATUS: COMPLETE
+VERDICT: FINDINGS
+<list of FINDING lines>
+If the run is incomplete or blocked, end instead with `REVIEWER_STATUS: INCOMPLETE | <reason>`. The banner is the trigger for the coordinator's next phase (PASS -> git completion gate; FINDINGS -> one implementer fix pass). Never emit the COMPLETE banner with no VERDICT line, and never end a finished run with only prose.

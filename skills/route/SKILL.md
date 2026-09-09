@@ -26,12 +26,12 @@ Read-only boundaries are strictly enforced: classifier, probe, planner, and revi
    - Any failure, timeout, or continuation must run sequentially as a single worker after previous worker stops.
    - **Same-turn phase chaining (no announce-then-idle):** When the current subagent is completed, the coordinator MUST dispatch the next required subagent in the SAME turn — Agent call in that turn, before `end_turn`. Forbidden: visible text such as "Dispatching reviewer" / "Reviewer next" / "Implementer done, sending to review" and then ending the turn with no `Agent` call. A completed subagent produces no further wakeups; an idle REPL hangs until the user speaks.
    - These payloads are sufficient reason to start the next phase (no extra user input except `AWAITING_APPROVAL` / commit / push gates):
-     - Classifier `LANE:` → start that lane
-     - User-approved plan → `route-implementer`
+     - `CLASSIFIER_STATUS: COMPLETE` + `LANE:` → start that lane
+     - User-approved plan, or `PLANNER_STATUS: COMPLETE` + `ROUTE_STATE: AWAITING_APPROVAL` → present plan for approval
      - `IMPLEMENTER_STATUS: COMPLETE` **or** implementer `TaskOutput` `<status>completed</status>` without `ESCALATE_TO_ARCHITECTURAL` → `route-reviewer`
-     - `VERDICT: FINDINGS` → one implementer fix pass
-     - `VERDICT: PASS` → git completion gate
-     - Missing implementer banner: still chain to reviewer if TaskOutput completed and the result has no escalate/fail marker. Do not idle to "wait for a better signal".
+     - `REVIEWER_STATUS: COMPLETE` + `VERDICT: FINDINGS` → one implementer fix pass
+     - `REVIEWER_STATUS: COMPLETE` + `VERDICT: PASS` → git completion gate
+     - Missing agent banner: still chain the next phase if that agent's TaskOutput completed and the result has no escalate/fail/incomplete marker. Do not idle to "wait for a better signal".
 3. **NO SUBAGENT TURN LIMITS & PERIODIC STATUS REPORTING:**
    - Subagents operate without turn limits (unbounded `maxTurns` omitted).
    - **Mandatory monitor loop (while ANY subagent runs):** After dispatching the single subagent and receiving its task id, the coordinator MUST poll it in a blocking, sequential loop — no other work between polls:
