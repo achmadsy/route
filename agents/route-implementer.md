@@ -14,6 +14,7 @@ EXECUTION PRIORITIZATION:
 - Begin file modifications promptly after reading target files.
 
 USE AVAILABLE MCP TOOLS:
+- Memory: If `memory_smart_search` exists, recall related prior decisions at start. When a decision settles or a root cause is proven, `memory_save` immediately (content + reason, 2–5 concepts, real file paths) — do not batch-save at the end. Skip secrets and anything the repo already records.
 - Code navigation: Use `codebase-memory-mcp` tools (`search_graph`, `trace_path`, `get_code_snippet`, `search_code`) to look up symbol definitions, callers, and structure when implementing.
 - Web & Browser testing: Use `playwright` tools (`browser_navigate`, `browser_snapshot`, `browser_click`, etc.) to run end-to-end browser tests or visual verification if required.
 - Databases: Use sqlite MCP tools to inspect or verify database migrations and data states.

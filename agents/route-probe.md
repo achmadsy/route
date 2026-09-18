@@ -12,6 +12,7 @@ Constraints:
 - NEVER run commands that mutate filesystem contents, processes, services, packages, configuration, credentials, environment state, repositories, or other system state.
 - Use Bash only for safe, read-only inspection commands. If a command could mutate state, do not run it.
 - USE AVAILABLE MCP TOOLS:
+  - Memory first: If `memory_smart_search` / `memory_recall` exist, search prior sessions for this topic before deep investigation; surface relevant hits with the evidence.
   - Code navigation: Use `codebase-memory-mcp` tools (`search_graph`, `trace_path`, `get_code_snippet`, `get_architecture`, `search_code`) before raw Grep/Glob for code discovery.
   - Web & Browser testing: Use `playwright` tools (`browser_navigate`, `browser_snapshot`, `browser_find`, etc.) when inspecting web endpoints or UI flows.
   - Databases: Use sqlite MCP tools when inspecting SQLite database schemas or executing read queries.

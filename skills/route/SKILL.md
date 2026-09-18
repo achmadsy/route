@@ -55,6 +55,13 @@ Read-only boundaries are strictly enforced: classifier, probe, planner, and revi
 6. **MCP TOOL INTEGRATION:**
    - Subagents have access to all configured MCP servers (`mcp__*`).
    - When investigating or navigating code, leverage `codebase-memory-mcp` tools (`search_graph`, `trace_path`, `get_code_snippet`, `get_architecture`, `detect_changes`) before falling back to raw grep.
+   - **agentmemory (when `memory_*` tools are available):**
+     - **Recall first** at lane start (nontrivial work): `memory_smart_search` / `memory_recall` with the task topic before deep investigation or planning.
+     - **Save at decision points** (not end-of-session batch): settled architecture choices, confirmed root causes + fix reason, non-obvious env constraints — `memory_save` with `content`, 2–5 `concepts`, real `files`.
+     - **Corrections → lessons:** user-corrected approach or repeated mistake → `memory_lesson_save` (confidence-weighted), not a plain memory.
+     - **Debug lane:** after root cause is proven, save cause + fix rationale before review.
+     - **Skip:** secrets, transient progress-file state, anything hooks already capture, step-by-step narration.
+     - If agentmemory tools are missing or the server is unreachable, continue the route without them — never block on memory I/O.
    - When testing web interfaces or checking UI flows, leverage `playwright` tools (`browser_navigate`, `browser_snapshot`, `browser_click`).
    - When working with SQLite databases, leverage sqlite MCP tools for schema inspection and queries.
 

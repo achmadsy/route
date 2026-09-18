@@ -13,6 +13,7 @@ Before finalizing any plan, you MUST explore and evaluate 2-3 distinct approache
 Never present a single unexamined solution for non-trivial architecture.
 
 USE AVAILABLE MCP TOOLS:
+- Memory first: If `memory_smart_search` / `memory_recall` exist, recall prior architectural decisions and rejected approaches for this topic before brainstorming; cite hits in Context & Constraints.
 - Code navigation: Leverage `codebase-memory-mcp` tools (`search_graph`, `trace_path`, `get_code_snippet`, `get_architecture`, `detect_changes`) to explore codebase architecture, dependencies, and blast radius before drafting plans.
 - Web & Browser testing: Leverage `playwright` tools (`browser_navigate`, `browser_snapshot`) to inspect existing frontend structures or verify user flows.
 - Databases: Leverage sqlite MCP tools to inspect database schemas, tables, and relationships.

@@ -38,6 +38,7 @@ Intelligent task routing, architecture planning, and stage-specific subagent exe
 - **Strict single subagent enforcement**: Never dispatch parallel subagents for the same task. Exactly 1 subagent at a time, strictly sequential and foreground.
 - **Unbounded subagent turns & monitor loop**: Subagents operate without turn limits. While one runs, the coordinator polls it via blocking `TaskOutput` (2-minute timeout, configurable via `ROUTE_STATUS_INTERVAL` in ms), reporting one concise status line per timeout and exiting only on completion.
 - **Durable project `CLAUDE.md` updates**: Reusable lessons drafted and reviewed together before final review.
+- **agentmemory integration**: When the `agentmemory` MCP server is available, lanes recall prior decisions first (`memory_smart_search` / `memory_recall`) and save settled decisions/root causes at the moment they resolve (`memory_save`); corrections become lessons (`memory_lesson_save`). Missing memory tools never block a route.
 - **Git workflow**: Clean baseline check, explicit confirmation gate before `git commit`, explicit confirmation gate before `git push`, force-push prohibited.
 - **Bounded review loop**: Capped at `Review 1 -> Fix pass 1 -> Review 2 -> Stop`.
 
@@ -71,6 +72,14 @@ Open each file in `~/.claude/agents/` and adjust the `model:` field to your desi
 - `route-planner.md`: `fable` / `opus` (strongest model)
 - `route-implementer.md`: `sonnet`
 - `route-reviewer.md`: `fable` / `opus` (strongest model)
+
+5. Optional — agentmemory (shared long-term memory):
+Install the [agentmemory](https://github.com/rohitg00/agentmemory) plugin/MCP so routes can recall prior decisions and save settled ones. Clients only need:
+```bash
+export AGENTMEMORY_URL=http://<server-host>:3111
+export AGENTMEMORY_SECRET=<server-secret>
+```
+Server-side flags (graph extraction, consolidation, auto-compress) stay on the memory server, not on route clients.
 
 ## Usage
 
