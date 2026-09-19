@@ -1,3 +1,11 @@
+# Structural Discovery & Memory Discipline
+
+- **Graph before shell:** Any structural code question (who calls X, what does X call, find definition, architecture, impact, dependencies, dead code, refactor candidates) → call `codebase-memory-mcp` tools FIRST (`search_graph`, `trace_path`, `get_code_snippet`, `get_architecture`, `detect_changes`, `query_graph`). Do **not** start with `Bash grep`/`find`/`rg` or raw `Grep`/`Glob` for those questions. Shell grep is fallback only after graph miss or `check_index_coverage` gap.
+- **Probe phase uses graph:** Before editing files, when locating what to change, prefer `list_projects` → `search_graph` / `trace_path` over shell search. Dedicated `Grep`/`Glob` tools still beat `Bash grep` when graph is insufficient (cbm gate hooks those tools).
+- **Recall first (nontrivial work):** Before deep investigation or planning, if `memory_*` tools exist: `memory_smart_search` / `memory_recall` with the task topic. Skip for trivial one-liners.
+- **Save at decision points:** Settled architecture choice, confirmed root cause + fix reason, non-obvious env constraint → `memory_save` with `content`, 2–5 `concepts`, real `files`. User correction / repeated mistake → `memory_lesson_save`. Never block route/work if agentmemory is down.
+- **Do not** rely on `/route` alone for this — these rules apply to every session.
+
 # Route Approval Resumption & Execution Rules
 
 - An explicit affirmative user choice (via AskUserQuestion or confirmed response) applies to routing only when this conversation contains a latest unresolved `ROUTE_STATE: AWAITING_APPROVAL` marker.
