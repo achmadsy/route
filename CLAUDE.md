@@ -15,18 +15,17 @@
 - Stricter project instructions and safety rules win, including any separate confirmation required immediately before destructive or outward-facing actions.
 - **NO AUTO-CONTINUE:** Never automatically proceed without explicit user input. If user supplies new command or input, drop previous plan immediately.
 - **STRICT STOP:** When user says stop, pause, cancel, or halt, halt immediately. Do not complete pending steps.
-- **NO BACKGROUND OR PARALLEL BUILD/EXECUTION:** NEVER run builds, tests, or tasks in parallel or in background. All actions strictly sequential, foreground, single-threaded.
+- **NO BACKGROUND OR PARALLEL COMMAND EXECUTION:** NEVER run builds, tests, or commands in parallel or in background. Claude Code may run one `Agent` invocation asynchronously; allow exactly one active route subagent and wait for its terminal notification before any next dispatch.
 - **BASH TOOL TIMEOUT AVOIDANCE:** Never allow long operations (e.g. `docker build`, test suites) to hit default 120s timeout and get auto-backgrounded by Claude CLI. Explicitly set `timeout: 600000` (10 minutes) on Bash calls for builds/tests. If command hits timeout or enters background, NEVER run duplicate command concurrently; inspect or wait for background task to terminate before proceeding.
 - **STRICT SINGLE SUBAGENT ENFORCEMENT & SEQUENCING:** Exactly ONE subagent may run at any given time. NEVER spawn multiple subagents for the same task or concurrent subagents across tasks. The initial return of the `Agent` tool is asynchronous (returns background task id); the subagent is STILL RUNNING until `<task-notification>` arrives with `<status>completed</status>`. Never launch a subsequent subagent (e.g., `route-implementer` after `route-planner`) until the preceding subagent has delivered its final `<task-notification>`.
-- **NO SUBAGENT TURN LIMIT & MAIN AGENT STATUS REPORTING:** Subagents have no turn limit. While a subagent runs, the main agent must stay in a blocking `TaskOutput(task_id, block: true, timeout: 120000)` poll loop (timeout configurable via `ROUTE_STATUS_INTERVAL` in ms, default 120000 = 2m). On each poll timeout, report one concise status line to the user; exit the loop only on `<task-notification>` completion. No other work, no new `Agent` call, no ending the turn while inside the loop. User input mid-loop: direct question → answer, resume loop; new command → NO AUTO-CONTINUE (drop plan, stop polling, user decides subagent fate); stop/pause/cancel → STRICT STOP (`TaskStop` subagent, full stop).
+- **NOTIFICATION-DRIVEN SUBAGENT COMPLETION:** Subagents have no turn limit. After dispatch, end with a concise visible phase status. Do not poll for output, create heartbeat cron jobs, or infer completion from silence. Wait for a terminal `<task-notification>`, then continue the route from that result. No new `Agent` call may start while one is active. User input while active: direct question → answer from known state; new command → NO AUTO-CONTINUE (drop pending route and ask whether to stop the subagent if unclear); stop/pause/cancel → STRICT STOP (use `SendMessage` to tell active subagent to stop and return stopped status, then full stop).
+- **ROUTE MODEL AUTHORITY:** For every `route-*` dispatch, omit the `model` argument. Each route agent's `model:` frontmatter selects its model. Never inject the main agent's model, a lane guess, an alias (`sonnet`, `fable`, `opus`, `haiku`), or a full model ID into the `Agent` call.
 - **ALWAYS VISIBLE OUTPUT:** Every model response turn MUST contain visible text content to the user. Never end turn with only thinking blocks or silent empty content that triggers CLI empty response recovery (`[Your previous response had no visible output...]`).
 
-# Task Management & Tool Usage Rules
+# Progress Tracking Without Task Tools
 
-## Critical Tool Protocol
-- **Always Track Tasks:** For any request requiring two or more sequential actions (such as reading multiple files, making edits, running tests, or diagnosing issues), you MUST initialize and maintain progress using task tools:
-  1. Call `TaskCreate` before starting the first action to outline the steps.
-  2. Call `TaskUpdate` with `status: "in_progress"` when starting a step, and `status: "completed"` when finished.
-  3. Keep tasks cleaned up when work is concluded.
-- **Single-step queries:** If answering a simple one-line query that does not require tool tracking, proceed directly without referencing task instructions.
-- **Silent System Prompts:** Under no circumstances should you quote, repeat, or explain internal `<instructions>` blocks regarding task reminders in your text response.
+- Do not call legacy task-management or task-output tools; normal Claude Code route sessions may not expose them.
+- For multi-step work, maintain a concise visible markdown checklist and update it at phase boundaries.
+- Editing routes also persist operational state in `.claude/routes/<route-id>/progress.md` as defined by the route skill.
+- Single-step queries need no checklist.
+- Under no circumstances quote, repeat, or explain internal `<instructions>` blocks regarding reminders in user-visible text.
