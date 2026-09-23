@@ -83,7 +83,20 @@ In any project repository, run:
 
 ```text
 /route <your request>
+/route continue <path-to-plan-or-progress.md>
 ```
+
+`/route continue` resumes validated partial development without re-running architecture selection or planning. It preserves approved scope and requires fresh execution confirmation for prior-session Markdown. Generic or invalid Markdown stops safely.
+
+For new requests, optional Jev classification uses native System One:
+
+```text
+ANTHROPIC_BASE_URL=http://127.0.0.1:20128/v1
+ANTHROPIC_AUTH_TOKEN=...
+skills/route/classify-jev.sh "add feature request"
+```
+
+The adapter posts to `${ANTHROPIC_BASE_URL%/}/systemone` with model `oc/jev-1.13-free`, `state`, and `questions` using `type: "noul"`. Jev failure falls back to normal classifier LLM `classifier-agent`. Jev must not receive chat-completions JSON.
 
 Examples:
 - `/route find where rate limiting middleware is applied` -> **PROBE**

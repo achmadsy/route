@@ -11,6 +11,7 @@
 - An explicit affirmative user choice (via AskUserQuestion or confirmed response) applies to routing only when this conversation contains a latest unresolved `ROUTE_STATE: AWAITING_APPROVAL` marker.
 - Resume that marker's exact approved route without reinterpreting or expanding scope: use `route-implementer`, then `route-reviewer`; if confirmed findings exist, allow at most one fix pass and one final review, then stop and report remaining issues.
 - Without an unresolved marker, treat the response as ordinary input and do not dispatch routing agents.
+- `/route continue <path-to-plan-or-progress.md>` may resume validated partial development from current-session route state or prior-session Markdown. Preserve exact approved lane/scope; do not reclassify or replan. Prior-session continuation requires fresh execution confirmation before edits.
 - Normal prompts that do not invoke `/route` retain standard Claude Code behavior.
 - Stricter project instructions and safety rules win, including any separate confirmation required immediately before destructive or outward-facing actions.
 - **NO AUTO-CONTINUE:** Never automatically proceed without explicit user input. If user supplies new command or input, drop previous plan immediately.

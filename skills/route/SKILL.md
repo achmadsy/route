@@ -13,6 +13,29 @@ Every `Agent` call for a `route-*` subagent MUST set only `subagent_type`, `desc
 
 Read-only boundaries are strictly enforced: classifier, probe, planner, and reviewer forbid all filesystem or system mutation. Only implementer makes edits and runs verification.
 
+### Partial Development Resumption
+
+`/route` supports continuing work already in progress. A continuation request must identify either an existing route state in the current conversation or a Markdown path from a prior session:
+
+```text
+/route continue <path-to-plan-or-progress.md>
+```
+
+The coordinator validates route markers before execution. Valid markers include route ID, lane, state, approved plan ID/scope, route-owned files, and any implementation/review evidence. A valid continuation preserves lane and approved scope; it does not invoke classifier or planner again. Prior-session Markdown requires fresh user confirmation immediately before edits. Invalid, stale, or generic Markdown stops with recovery guidance; it never silently replans or broadens scope.
+
+Resume phase mapping:
+
+- approved plan with incomplete implementation → `IMPLEMENTING`
+- implementation complete without review → `REVIEWING`
+- first review findings → one bounded `FIXING` pass, then final review
+- final-review findings → stop and preserve progress for manual recovery
+
+Current-session `ROUTE_STATE: AWAITING_APPROVAL` resumes only its exact approved plan. Keep one active subagent and existing commit/push gates.
+
+### Jev Classifier
+
+For new requests, coordinator may run `skills/route/classify-jev.sh` first. Script calls native System One endpoint `${ANTHROPIC_BASE_URL%/}/systemone` with `model: "oc/jev-1.13-free"`, `state`, and `questions` objects using `type: "noul"`. Jev is not a chat-completions model. Credentials use `ANTHROPIC_AUTH_TOKEN`, then `ANTHROPIC_API_KEY`; timeout is controlled by `ROUTE_JEV_TIMEOUT_SECONDS` (default 15). Any missing configuration, timeout, non-2xx response, malformed answer, or ambiguous score falls back to the existing normal LLM classifier configured as `classifier-agent`. Never log credentials or full upstream payloads.
+
 ### ABSOLUTE EXECUTION CONSTRAINTS:
 1. **NO PARALLEL EXECUTION:**
    - NEVER build, test, compile, or execute commands in parallel or in the background.
@@ -67,7 +90,7 @@ Read-only boundaries are strictly enforced: classifier, probe, planner, and revi
 
 ## 1. Classification & Escalation
 
-Delegate the exact user request plus minimal workspace context to `route-classifier` with the Agent tool (`subagent_type: "route-classifier"`). Ask it to inspect only enough context to return its required four-line classification:
+For a new request, first attempt `skills/route/classify-jev.sh` with the exact request. If it exits nonzero, delegate the exact user request plus minimal workspace context to `route-classifier` with the Agent tool (`subagent_type: "route-classifier"`). Ask it to inspect only enough context to return its required four-line classification. Jev failure must not block normal classification.
 
 ```text
 LANE: PROBE | DIRECT | DEBUG | ARCHITECTURAL
