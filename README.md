@@ -27,6 +27,7 @@ Intelligent task routing, architecture planning, and stage-specific subagent exe
 
 ## Features
 
+- **Explicit route entry only**: Ordinary main-agent work never auto-enters route. All five `route-*` agents expect route origin; the wrapper rejects prompts without `ROUTE_ORIGIN: explicit-/route`. Coordinator checks actual user invocation or active approved route before adding that marker. Use `/route <request>` or `/route continue ...` to opt in.
 - **Conservative classification**: Low confidence or security/migration/API triggers force `ARCHITECTURAL`. All bug fixes force `DEBUG`.
 - **The Iron Law of Debugging**: Mandatory 4-phase debugging (root cause investigation, pattern analysis, hypothesis testing, targeted fix & verify) with 3-fix circuit breaker.
 - **Mandatory brainstorming gate**: Architectural plans evaluate 2-3 distinct approaches with explicit trade-offs.
@@ -35,9 +36,9 @@ Intelligent task routing, architecture planning, and stage-specific subagent exe
   - `HIGH`: Strict TDD (failing test first, make pass, red/green evidence required).
   - `MEDIUM`: Automated tests required.
   - `LOW`: Build, lint, or typecheck verification.
-- **Strict single subagent enforcement**: Never dispatch parallel subagents for the same task. Exactly 1 subagent at a time, strictly sequential and foreground.
-- **Unbounded subagent turns & notification sequencing**: Subagents operate without turn limits. Coordinator waits for Claude Code's terminal subagent notification before advancing; no legacy polling or heartbeat cron required.
-- **Agent-owned model selection**: Route dispatches omit per-invocation `model`; each `route-*` agent's `model:` frontmatter remains sole model authority.
+- **Strict single-agent enforcement**: Run exactly one route agent in foreground; never dispatch another before its exit and validated completion banner.
+- **Heartbeat and stuck-run bound**: Foreground wrapper reports progress every `ROUTE_HEARTBEAT_SECONDS` (default 60) and stops an agent after `ROUTE_AGENT_MAX_SECONDS` (default 540). No second monitoring agent or heartbeat cron starts.
+- **Agent-owned model selection**: Foreground `claude -p --agent` dispatch omits `--model`; each `route-*` agent's `model:` frontmatter remains sole model authority, including custom gateway aliases.
 - **Durable project `CLAUDE.md` updates**: Reusable lessons drafted and reviewed together before final review.
 - **agentmemory integration**: When the `agentmemory` MCP server is available, lanes recall prior decisions first (`memory_smart_search` / `memory_recall`) and save settled decisions/root causes at the moment they resolve (`memory_save`); corrections become lessons (`memory_lesson_save`). Missing memory tools never block a route.
 - **Git workflow**: Clean baseline check, explicit confirmation gate before `git commit`, explicit confirmation gate before `git push`, force-push prohibited.
@@ -67,7 +68,7 @@ cp CLAUDE.md ~/.claude/CLAUDE.md
 ```
 
 4. Configure models only in `~/.claude/agents/route-*.md`:
-Open each file in `~/.claude/agents/` and set its `model:` frontmatter to any value accepted by current Claude Code (`haiku`, `sonnet`, `opus`, `fable`, `inherit`, or a full model ID). Route coordinator intentionally omits `model` from every `Agent` call so per-agent configuration is never overridden.
+Open each file in `~/.claude/agents/` and set its `model:` frontmatter to a model supported by your Claude Code gateway. The provided files use custom gateway model names (`classifier-agent`, `probe-agent`, etc.); configure them for your provider before use. Route coordinator launches `claude -p --agent` without `--model`, preserving each agent's model choice. Python 3 is required for the foreground heartbeat wrapper. Foreground CLI route phases create separate Claude sessions and inherit local CLI settings; they are not in-process `Agent` tool calls.
 
 5. Optional — agentmemory (shared long-term memory):
 Install the [agentmemory](https://github.com/rohitg00/agentmemory) plugin/MCP so routes can recall prior decisions and save settled ones. Clients only need:
@@ -96,7 +97,7 @@ ANTHROPIC_AUTH_TOKEN=...
 skills/route/classify-jev.sh "add feature request"
 ```
 
-The adapter posts to `${ANTHROPIC_BASE_URL%/}/systemone` with model `oc/jev-1.13-free`, `state`, and `questions` using `type: "noul"`. Jev failure falls back to normal classifier LLM `classifier-agent`. Jev must not receive chat-completions JSON.
+The adapter posts to `${ANTHROPIC_BASE_URL%/}/systemone` with model `oc/jev-1.13-free`, `state`, and `questions` using `type: "noul"`. Jev failure (including ambiguous scores) falls back to `bash skills/route/run-agent.sh route-classifier` using the agent file's `classifier-agent` model. Jev must not receive chat-completions JSON. Example: `printf 'ROUTE_ORIGIN: explicit-/route\n%s' '1+2=?' | bash skills/route/run-agent.sh route-classifier`. The wrapper validates completion banners and prints periodic progress on stderr without starting another agent.
 
 Examples:
 - `/route find where rate limiting middleware is applied` -> **PROBE**

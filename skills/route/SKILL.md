@@ -1,15 +1,15 @@
 ---
 name: route
-description: Use when the user invokes /route or when tasks require classification into Probe (research), Direct (simple change), Debug (bugs/errors/fixes), or Architectural (complex features/refactor).
+description: Use only when the user explicitly invokes /route, including /route continue. Never auto-route ordinary work.
 ---
 
 # Routing Coordinator
 
-Coordinate `/route <request>` and classified workflows. Do not classify, investigate, plan, implement, or review the request in the coordinator. Non-`/route` prompts remain unchanged.
+Coordinate only explicit `/route <request>` and `/route continue ...` workflows. Do not classify, investigate, plan, implement, or review the request in the coordinator. Ordinary prompts, including mid-task work by the main agent, must never silently enter route or dispatch any `route-*` agent.
 
 Project instructions and stricter safety rules override this workflow. Never substitute another agent or model when a routing agent, its configured model, or its tools are unavailable. Report the failure and stop. An unchanged model placeholder is unsupported configuration; report `ROUTE_ERROR: MODEL_NOT_CONFIGURED | <agent> | <placeholder>` and stop.
 
-Every `Agent` call for a `route-*` subagent MUST set only `subagent_type`, `description`, and `prompt` (plus isolation only when explicitly required). NEVER pass a per-invocation `model` override. The selected route agent's `model:` frontmatter is the sole model authority. If the available `Agent` interface requires a model override, report `ROUTE_ERROR: MODEL_OVERRIDE_REQUIRED | <agent>` and stop rather than choosing `sonnet`, `fable`, `opus`, `haiku`, or any full model ID.
+Run route agents with `bash skills/route/run-agent.sh <route-agent>` (prompt on stdin), which calls foreground `claude -p --agent <route-agent>` with no `--model`. Every route agent prompt MUST start with `ROUTE_ORIGIN: explicit-/route` on its own line, then identify the exact user request and the authorized lane/scope or review evidence appropriate to that phase. The helper rejects prompts missing the origin line before launching Claude. This marker is a guard against accidental dispatch, not proof of user consent: the coordinator must verify explicit `/route` invocation or active route-plan approval in the conversation first. The agent file's `model:` frontmatter remains the sole model authority, including custom gateway model names. Do not dispatch `route-*` through the `Agent` tool: its required per-call model enum cannot represent those names. If CLI agent/model is unavailable, report the actual error and stop; never substitute another model. The helper emits the agent's validated result or exits nonzero.
 
 Read-only boundaries are strictly enforced: classifier, probe, planner, and reviewer forbid all filesystem or system mutation. Only implementer makes edits and runs verification.
 
@@ -39,17 +39,14 @@ For new requests, coordinator may run `skills/route/classify-jev.sh` first. Scri
 ### ABSOLUTE EXECUTION CONSTRAINTS:
 1. **NO PARALLEL EXECUTION:**
    - NEVER build, test, compile, or execute commands in parallel or in the background.
-   - Claude Code may run an `Agent` invocation asynchronously. Allow exactly one active route subagent and wait for its terminal notification before any next dispatch.
+   - Run one foreground route agent through `run-agent.sh` at a time. Wait for its command result before any next dispatch.
    - NEVER use `run_in_background: true` on Bash or command-execution tools.
    - NEVER use Workflow or multi-agent orchestration to fan out concurrent jobs.
    - **BASH TIMEOUT AVOIDANCE:** For long-running operations like `docker build` or extensive test suites, explicitly specify `timeout: 600000` (10 minutes) on `Bash` tool calls to prevent Claude CLI from timing out at 120s and automatically backgrounding the process. If a command ever times out and moves to background, DO NOT start a duplicate command concurrently. Wait for or kill the background job first.
-2. **STRICT SINGLE SUBAGENT ENFORCEMENT & SEQUENCING:**
-   - Exactly ONE subagent may run at any time (single subagent, 1 time).
-   - NEVER spawn multiple subagents for the same task or across tasks.
-   - **Subagent completion requirement:** Calling `Agent` may return before a background subagent finishes. Treat the subagent as active until its `<task-notification>` reports `<status>completed</status>`, `<status>failed</status>`, or `<status>stopped</status>`.
-   - NEVER call `Agent` again (e.g., launching `route-implementer` right after `route-planner`) until the preceding subagent has delivered a terminal notification.
-   - Any failure, timeout, or continuation must run sequentially as a single worker after previous worker stops.
-   - **Notification-driven phase chaining:** When a terminal subagent notification arrives, inspect its status and result. If complete, dispatch the next required phase in that resumed turn. If failed or stopped, report it and stop. Never infer completion from elapsed time or silence.
+2. **STRICT SINGLE AGENT ENFORCEMENT & SEQUENCING:**
+   - Run exactly ONE route agent at a time via foreground `run-agent.sh`. Never start another route agent until that command exits.
+   - Invoke the helper with `Bash` using `timeout: 600000` and `run_in_background: false`; never retry a timed-out command while its process may still be running.
+   - On zero exit, inspect the agent result and advance only when its completion banner is valid. On nonzero exit, incomplete result, timeout, or interruption, stop and report the error. Never infer completion from silence.
    - These payloads are sufficient reason to start the next phase (no extra user input except `AWAITING_APPROVAL` / commit / push gates):
      - `CLASSIFIER_STATUS: COMPLETE` + `LANE:` → start that lane
      - User-approved plan, or `PLANNER_STATUS: COMPLETE` + `ROUTE_STATE: AWAITING_APPROVAL` → present plan for approval
@@ -57,15 +54,10 @@ For new requests, coordinator may run `skills/route/classify-jev.sh` first. Scri
      - `REVIEWER_STATUS: COMPLETE` + `VERDICT: FINDINGS` → one implementer fix pass
      - `REVIEWER_STATUS: COMPLETE` + `VERDICT: PASS` → git completion gate
    - Missing, malformed, or incomplete completion banner is an agent protocol failure. Report it and stop; do not guess the next phase.
-3. **NO TASK-TOOL DEPENDENCY:**
-   - Do not call or instruct use of legacy task-management or task-output tools. Current normal subagent routing does not expose them.
+3. **HEARTBEAT WITHOUT PARALLEL AGENTS:**
+   - Do not call legacy task-management or task-output tools. The foreground wrapper emits a heartbeat to stderr every `ROUTE_HEARTBEAT_SECONDS` (default 60), reporting elapsed time and age of its last CLI event. `ROUTE_AGENT_MAX_SECONDS` (default 540) bounds a stuck agent and terminates it before Bash's 600-second deadline. These are status reports from the one active agent process, not permission to launch another agent.
    - Track user-visible phase progress with a concise inline checklist. Editing lanes additionally use `.claude/routes/<route-id>/progress.md` as defined below.
-   - After dispatching a background subagent, tell the user which route phase is running, then end the turn. Claude Code delivers the terminal `<task-notification>` in a later turn; continue only from that notification.
-   - Do not poll, schedule heartbeat jobs, or create cron jobs to watch a subagent. Completion notifications are the synchronization mechanism.
-   - **User input while a subagent runs:**
-     - Question or comment: answer from known state; state that the named phase remains active unless a terminal notification already arrived.
-     - New task/command: obey NO AUTO-CONTINUE and drop the pending route. Ask whether to stop the active subagent if user intent is unclear.
-     - Stop/pause/cancel/halt: STRICT STOP — use `SendMessage` to tell the active subagent to stop immediately and return a stopped status, then stop coordinator work and await user instruction.
+   - Do not start a second route agent on a heartbeat or timeout; inspect the exit status first. On user stop/pause/cancel/halt, interrupt the foreground command; never launch another phase. On new task/command, drop the pending route and address the new input.
 4. **ALWAYS VISIBLE OUTPUT:**
    - Every model turn MUST emit visible message text to the user. Never end a turn with empty content or thinking blocks only, which causes CLI recovery messages (`[Your previous response had no visible output...]`).
 5. **NO AUTO-CONTINUE & STRICT STOP ON DEMAND:**
@@ -90,7 +82,7 @@ For new requests, coordinator may run `skills/route/classify-jev.sh` first. Scri
 
 ## 1. Classification & Escalation
 
-For a new request, first attempt `skills/route/classify-jev.sh` with the exact request. If it exits nonzero, delegate the exact user request plus minimal workspace context to `route-classifier` with the Agent tool (`subagent_type: "route-classifier"`). Ask it to inspect only enough context to return its required four-line classification. Jev failure must not block normal classification.
+For a new request, first run `skills/route/classify-jev.sh` with the exact request in foreground Bash (`timeout: 600000`, `run_in_background: false`). If it exits nonzero, send `ROUTE_ORIGIN: explicit-/route` followed by the exact request plus minimal workspace context on stdin to `bash skills/route/run-agent.sh route-classifier`, also in foreground Bash with the same timeout. The helper uses the configured agent model without overriding it. Do not invoke both paths after Jev succeeds. Jev failure must not block normal classification; failed CLI fallback must stop the route with its error.
 
 ```text
 LANE: PROBE | DIRECT | DEBUG | ARCHITECTURAL
@@ -187,14 +179,14 @@ If 3 consecutive fix attempts fail, the agent MUST STOP immediately, escalate to
 ## 5. Routing Lane Workflows
 
 ### Lane A: Probe
-1. Delegate exact request and relevant classifier context to `route-probe`.
+1. Send exact request and relevant classifier context to `run-agent.sh route-probe` in foreground.
 2. Present evidence and recommendations.
 3. Stop without edits, progress file, or commit.
 
 ### Lane B: Direct (Simple additions / non-bug tweaks)
 1. Check Git repository and clean working tree baseline.
 2. Initialize `.claude/routes/<route-id>/progress.md` with state `CLASSIFIED` -> `IMPLEMENTING`. Determine risk tier (LOW or MEDIUM).
-3. Delegate exact request to `route-implementer`. Require focused edits, appropriate risk-tiered verification, and changed-file/test evidence.
+3. Run `route-implementer` through the foreground helper with the exact request. Require focused edits, appropriate risk-tiered verification, and changed-file/test evidence.
 4. If implementer reports `ESCALATE_TO_ARCHITECTURAL: <reason>`:
    - Stop direct execution immediately.
    - Disclose escalation reason and every partial edit.
@@ -202,30 +194,30 @@ If 3 consecutive fix attempts fail, the agent MUST STOP immediately, escalate to
    - Update progress file state to `PLANNING` and proceed to Architectural planning.
 5. If implementation succeeds, update progress state to `REVIEWING`.
 6. Update durable project `CLAUDE.md` if reusable knowledge was established (Section 6).
-7. Delegate to `route-reviewer` with diff, verification evidence, and risk requirements.
+7. Run `route-reviewer` through the foreground helper with diff, verification evidence, and risk requirements.
 8. If Reviewer returns `VERDICT: FINDINGS`:
    - Update progress state to `FIXING`.
-   - Dispatch `route-implementer` for **one targeted fix pass only**.
+   - Run `route-implementer` through the foreground helper for **one targeted fix pass only**.
    - Update progress state to `FINAL_REVIEW`.
-   - Dispatch `route-reviewer` for final review.
+   - Run `route-reviewer` through the foreground helper for final review.
 9. If final review passes, proceed to **Git Completion & Push Gate** (Section 7).
 10. If final review fails, preserve progress file for recovery, report findings, and stop.
 
 ### Lane C: Debug (Bugs, failures, errors, broken states)
 1. Check Git repository and clean working tree baseline.
 2. Initialize `.claude/routes/<route-id>/progress.md` with state `CLASSIFIED` -> `INVESTIGATING`.
-3. Delegate to `route-implementer` with mandatory Iron Law instructions (Phase 1-4: investigate root cause, pattern analysis, minimal test, targeted fix).
+3. Run `route-implementer` through the foreground helper with mandatory Iron Law instructions (Phase 1-4: investigate root cause, pattern analysis, minimal test, targeted fix).
 4. If 3 fixes fail or complexity exceeds scope, implementer reports `ESCALATE_TO_ARCHITECTURAL: <reason>`. Escalate immediately.
 5. If bug is resolved with root-cause proof, update state to `REVIEWING`.
 6. Update durable project `CLAUDE.md` if reusable troubleshooting knowledge was established.
-7. Delegate to `route-reviewer` to verify that fix addresses root cause rather than symptoms, and passes automated/reproduction tests.
-8. If Reviewer returns `VERDICT: FINDINGS`, dispatch `route-implementer` for **one targeted fix pass only**, then `route-reviewer` for final review.
+7. Run `route-reviewer` through the foreground helper to verify that fix addresses root cause rather than symptoms, and passes automated/reproduction tests.
+8. If Reviewer returns `VERDICT: FINDINGS`, run `route-implementer` through the foreground helper for **one targeted fix pass only**, then `route-reviewer` for final review.
 9. If final review passes, proceed to **Git Completion & Push Gate** (Section 7).
 
 ### Lane D: Architectural (Complex features / refactors / multi-file changes)
 1. Check Git repository and clean working tree baseline.
 2. Initialize `.claude/routes/<route-id>/progress.md` with state `CLASSIFIED` -> `PLANNING`.
-3. Delegate to `route-planner`. Supply request, context, and any partial edits.
+3. Run `route-planner` through the foreground helper. Supply request, context, and any partial edits.
 4. **Mandatory Planning Gate:** Planner must brainstorm and evaluate 2-3 distinct approaches before presenting the final architecture.
 5. Record plan in progress file and update state to `AWAITING_APPROVAL`.
 6. Present complete plan ending with:
@@ -245,12 +237,12 @@ Approval via `AskUserQuestion` (or explicit confirmation) resumes only the lates
 Destructive or outward-facing actions (deletion, deployment, publication) require separate immediate confirmation immediately before execution even after plan approval.
 
 ### Execution Sequence
-1. **Implementation Pass:** Dispatch single `route-implementer` worker with exact approved plan (no scope creep) and risk-based verification. Instruct implementer to prioritize immediate file modifications and verification over extended history/upstream searches. Wait for its terminal completion notification before advancing. NEVER spawn concurrent or parallel workers.
+1. **Implementation Pass:** Run one foreground `run-agent.sh route-implementer` command with exact approved plan (no scope creep) and risk-based verification. Instruct implementer to prioritize immediate file modifications and verification over extended history/upstream searches. Wait for successful exit and completion banner before advancing. NEVER spawn concurrent or parallel workers.
 2. **Durable Project `CLAUDE.md` Update:** Draft/apply verified reusable guidance to project `CLAUDE.md` before final review.
-3. **Review 1:** Dispatch single `route-reviewer` with approved plan, diff, and test evidence (`VERDICT: PASS | FINDINGS`). Wait until complete.
+3. **Review 1:** Run one foreground `run-agent.sh route-reviewer` command with approved plan, diff, and test evidence (`VERDICT: PASS | FINDINGS`). Wait for successful exit and completion banner.
 4. **Review 1 Pass:** If `PASS`, proceed to Git Completion.
-5. **Review 1 Findings & Fix Pass:** If `FINDINGS`, dispatch single `route-implementer` for **one targeted fix pass only**.
-6. **Review 2 (Final Review):** Dispatch single `route-reviewer` for final review. Strictly capped (max 1 fix pass, max 2 reviews total).
+5. **Review 1 Findings & Fix Pass:** If `FINDINGS`, run one foreground `run-agent.sh route-implementer` command for **one targeted fix pass only**.
+6. **Review 2 (Final Review):** Run one foreground `run-agent.sh route-reviewer` command for final review. Strictly capped (max 1 fix pass, max 2 reviews total).
 7. **Final Outcome:** If Review 2 passes, proceed to Git Completion. If it fails, record state and stop without committing.
 
 ---
